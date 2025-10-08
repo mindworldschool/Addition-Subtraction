@@ -1,17 +1,115 @@
-// main.js (fixed version)
+// Handle user answer
+function handleAnswer(isCorrect, value) {
+  if (state.answered) return; // Prevent multiple answers
+  state.answered = true;
+  
+  // Show correct answer on the board
+  const taskEl = document.getElementById('task');
+  const task = state.current;
+  const answerText = `${task.a} ${task.op} ${task.b} = ${task.answer}`;
+  taskEl.textContent = answerText;
+  
+  // Check if answer is long and expand board
+  const board = document.querySelector('.board');
+  if (board && answerText.length > 11) {
+    board.classList.add('expanded');
+  }
+  
+  // Visual feedback on board
+  try {
+    if (board) {
+      board.classList.remove('correct', 'wrong');
+      board.classList.add(isCorrect ? 'correct' : 'wrong');
+      setTimeout(() => board.classList.remove('correct', 'wrong'), 800);
+    }
+  } catch(e) {}
+  
+  state.total++;
+  
+  if (isCorrect) {
+    state.correct++;
+    state.streak++;
+    Storage.logResult({ok: true, task: state.current, value});
+    
+    playSound(sfx.success);
+    showToast(I18N[state.lang].right_toast, true);
+  } else {
+    state.wrong++;
+    state.streak = 0;
+    Storage.logResult({ok: false, task: state.current, value});
+    
+    playSound(sfx.error);
+    showToast(I18N[state.lang].wrong_toast, false);
+  }
+  
+  updateStats();
+  
+  // Auto advance after delay - DON'T wait for button
+  setTimeout(() => {
+    if (!finishIfNeeded()) {
+      // Don't auto-advance, just enable Next button
+      // User must click Next to continue
+    }
+  }, 1200);
+}// main.js - Main application logic
+// Version: 14 (Fixed & Optimized)
 
-// Audio setup with unlock mechanism
+// ========== Audio Setup ==========
 const sfx = { 
   click: new Audio('assets/sfx/click.wav'), 
   success: new Audio('assets/sfx/success.wav'), 
   error: new Audio('assets/sfx/error.wav')
 };
 
+// Reduced volume by 30% (from 70% to 40%)
 Object.values(sfx).forEach(a => {
   a.preload = 'auto'; 
-  a.volume = 0.7;
+  a.volume = 0.4;
 });
 
+// Sound mute state
+let soundEnabled = true;
+
+// Play sound with mute check
+function playSound(sound) {
+  if (soundEnabled) {
+    try {
+      sound.currentTime = 0;
+      sound.play();
+    } catch(e) {}
+  }
+}
+
+// Toggle sound on/off
+function toggleSound() {
+  soundEnabled = !soundEnabled;
+  const btn = document.getElementById('btn-sound');
+  if (btn) {
+    btn.textContent = soundEnabled ? '🔊' : '🔇';
+    btn.classList.toggle('muted', !soundEnabled);
+  }
+  // Save preference
+  try {
+    localStorage.setItem('mws-sound-enabled', soundEnabled ? '1' : '0');
+  } catch(e) {}
+}
+
+// Load sound preference
+function loadSoundPreference() {
+  try {
+    const saved = localStorage.getItem('mws-sound-enabled');
+    if (saved === '0') {
+      soundEnabled = false;
+      const btn = document.getElementById('btn-sound');
+      if (btn) {
+        btn.textContent = '🔇';
+        btn.classList.add('muted');
+      }
+    }
+  } catch(e) {}
+}
+
+// Unlock audio on first user interaction
 const unlockAudio = () => {
   try {
     Object.values(sfx).forEach(a => {
@@ -25,7 +123,7 @@ const unlockAudio = () => {
 document.addEventListener('pointerdown', unlockAudio, {once: true});
 document.addEventListener('click', unlockAudio, {once: true});
 
-// Game state
+// ========== Game State ==========
 const state = { 
   lang: 'uk', 
   level: 'easy', 
@@ -35,10 +133,11 @@ const state = {
   correct: 0, 
   wrong: 0, 
   streak: 0, 
-  current: null 
+  current: null,
+  answered: false
 };
 
-// Update statistics display
+// ========== Statistics ==========
 function updateStats() { 
   document.getElementById("stat-total").textContent = state.total;
   document.getElementById("stat-correct").textContent = state.correct;
@@ -46,16 +145,17 @@ function updateStats() {
   document.getElementById("stat-streak").textContent = state.streak;
 }
 
-// Switch between settings and game panels
+// ========== Panel Switching ==========
 function switchPanel(game) { 
   document.getElementById("panel-settings").hidden = game;
   document.getElementById("panel-game").hidden = !game;
 }
 
-// Generate and display next task
+// ========== Generate Next Task ==========
 function nextTask() {
   const task = Generator.generateTask(state.level);
   state.current = task;
+  state.answered = false;
   renderTask(task);
   
   // Task animation
@@ -91,18 +191,26 @@ function nextTask() {
     }
   }
   
-  // Show/hide input mode
-  document.getElementById("inputWrap").hidden = state.mode !== 'input';
-  document.getElementById('answers').style.display = (state.mode === 'input') ? 'none' : 'flex';
+  // Show/hide input or buttons based on mode
+  const isInputMode = state.mode === 'input';
+  const inputWrap = document.getElementById("inputWrap");
+  const answersWrap = document.getElementById('answers');
   
-  if (state.mode === 'input') { 
+  if (isInputMode) {
+    // Show input field, hide answer buttons
+    inputWrap.hidden = false;
+    answersWrap.style.display = 'none';
     const input = document.getElementById("answerInput");
     input.value = '';
-    input.focus();
+    setTimeout(() => input.focus(), 100);
+  } else {
+    // Hide input field, show answer buttons
+    inputWrap.hidden = true;
+    answersWrap.style.display = 'flex';
   }
 }
 
-// Start game with selected settings
+// ========== Start Game ==========
 function onStart() {
   state.level = document.getElementById("level").value;
   state.mode = document.getElementById("mode").value;
@@ -125,7 +233,7 @@ function onStart() {
   nextTask();
 }
 
-// Check if series is finished
+// ========== Check if Series Finished ==========
 function finishIfNeeded() {
   if (state.series && state.total >= state.series) {
     switchPanel(false);
@@ -135,15 +243,23 @@ function finishIfNeeded() {
   return false;
 }
 
-// Handle user answer
+// ========== Handle User Answer ==========
 function handleAnswer(isCorrect, value) {
+  if (state.answered) return; // Prevent multiple answers
+  state.answered = true;
+  
+  // Show correct answer on the board
+  const taskEl = document.getElementById('task');
+  const task = state.current;
+  taskEl.textContent = `${task.a} ${task.op} ${task.b} = ${task.answer}`;
+  
   // Visual feedback on board
   try {
     const board = document.querySelector('.board');
     if (board) {
       board.classList.remove('correct', 'wrong');
       board.classList.add(isCorrect ? 'correct' : 'wrong');
-      setTimeout(() => board.classList.remove('correct', 'wrong'), 300);
+      setTimeout(() => board.classList.remove('correct', 'wrong'), 800);
     }
   } catch(e) {}
   
@@ -154,33 +270,28 @@ function handleAnswer(isCorrect, value) {
     state.streak++;
     Storage.logResult({ok: true, task: state.current, value});
     
-    try { 
-      sfx.success.currentTime = 0;
-      sfx.success.play();
-    } catch(e) {}
-    
+    playSound(sfx.success);
     showToast(I18N[state.lang].right_toast, true);
   } else {
     state.wrong++;
     state.streak = 0;
     Storage.logResult({ok: false, task: state.current, value});
     
-    try { 
-      sfx.error.currentTime = 0;
-      sfx.error.play();
-    } catch(e) {}
-    
+    playSound(sfx.error);
     showToast(I18N[state.lang].wrong_toast, false);
   }
   
   updateStats();
   
-  if (!finishIfNeeded()) {
-    nextTask();
-  }
+  // Wait before showing next task
+  setTimeout(() => {
+    if (!finishIfNeeded()) {
+      nextTask();
+    }
+  }, 1200);
 }
 
-// Initialize on page load
+// ========== Initialize on Page Load ==========
 window.addEventListener('DOMContentLoaded', () => {
   // Enable start button
   const bs = document.getElementById('btn-start');
@@ -195,6 +306,9 @@ window.addEventListener('DOMContentLoaded', () => {
     state.lang = saved.lang;
   }
   applyI18n(state.lang);
+  
+  // Load sound preference
+  loadSoundPreference();
   
   // Language switcher
   document.querySelectorAll('.lang-btn').forEach(b => {
@@ -219,25 +333,29 @@ window.addEventListener('DOMContentLoaded', () => {
   
   // Event listeners
   document.getElementById("btn-start").addEventListener('click', () => {
-    sfx.click.currentTime = 0;
-    sfx.click.play();
+    playSound(sfx.click);
     onStart();
   });
   
+  document.getElementById("btn-sound").addEventListener('click', () => {
+    toggleSound();
+    playSound(sfx.click);
+  });
+  
   document.getElementById("btn-settings").addEventListener('click', () => {
-    sfx.click.currentTime = 0;
-    sfx.click.play();
+    playSound(sfx.click);
     switchPanel(false);
   });
   
   document.getElementById("btn-next").addEventListener('click', () => {
-    sfx.click.currentTime = 0;
-    sfx.click.play();
+    // Always allow next task, remove the state.answered check
+    playSound(sfx.click);
     nextTask();
   });
   
   // Answer buttons click
   document.getElementById("answers").addEventListener('click', (e) => {
+    if (state.answered) return;
     const btn = e.target.closest('.answer-btn');
     if (!btn) return;
     handleAnswer(btn.dataset.correct === '1', Number(btn.textContent));
@@ -245,7 +363,9 @@ window.addEventListener('DOMContentLoaded', () => {
   
   // Submit input answer
   document.getElementById("btn-submit").addEventListener('click', () => {
+    if (state.answered) return;
     const val = Number(document.getElementById("answerInput").value);
+    if (isNaN(val)) return;
     handleAnswer(val === state.current.answer, val);
   });
   
@@ -260,6 +380,7 @@ window.addEventListener('DOMContentLoaded', () => {
   // Keyboard shortcuts for answer buttons (1, 2, 3)
   document.addEventListener('keydown', (e) => {
     if (document.getElementById("panel-game").hidden) return;
+    if (state.answered) return;
     if (state.mode !== 'input') {
       const n = Number(state.mode);
       const idx = ['1', '2', '3'].indexOf(e.key);
