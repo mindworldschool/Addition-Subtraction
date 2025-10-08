@@ -8,8 +8,7 @@
 </head>
 <body>
   <div class="app">
-    <!-- Updated for trainer_v9 -->
-<header class="topbar" role="banner">
+    <header class="topbar" role="banner">
       <div class="topbar__left">
         <img src="assets/img/logo.png" alt="MindWorld School logo" class="logo" />
       </div>
@@ -25,7 +24,7 @@
     </header>
 
     <main class="content">
-      <!-- Settings -->
+      <!-- Settings Panel -->
       <section class="panel" id="panel-settings" aria-labelledby="settings-title">
         <h2 id="settings-title" class="visually-hidden" data-i18n="settings">Налаштування</h2>
         <div class="settings-grid">
@@ -60,27 +59,38 @@
         </div>
       </section>
 
-      <!-- Game -->
+      <!-- Game Panel -->
       <section class="panel" id="panel-game" hidden aria-live="polite">
         <div class="game-screen">
-          <!-- Task is rendered exactly on the whiteboard area -->
           <div class="board" aria-label="Task board">
             <div id="task" class="task">7 + 5 = ?</div>
           </div>
         </div>
 
-        <!-- Answers row (hidden when mode=input) -->
+        <!-- Answer buttons (shown when mode = 2 or 3) -->
         <div id="answers" class="answers"></div>
 
-        <!-- Input mode (shown when mode=input) -->
+        <!-- Input mode (shown ONLY when mode = input) -->
         <div id="inputWrap" class="input-wrap" hidden>
-          <input id="answerInput" class="input" inputmode="numeric" pattern="[0-9]*" aria-label="Введіть відповідь" />
+          <input 
+            id="answerInput" 
+            class="input" 
+            type="number"
+            inputmode="numeric" 
+            pattern="[0-9]*" 
+            placeholder="?"
+            aria-label="Введіть відповідь" 
+          />
           <button id="btn-submit" class="btn" data-i18n="submit">Відповісти</button>
         </div>
 
+        <!-- Toolbar -->
         <div class="toolbar">
-          <button id="btn-next" class="btn" data-i18n="next">Далі</button>
-          <button id="btn-settings" class="btn ghost" data-i18n="exit">Вихід</button>
+          <div class="toolbar__left">
+            <button id="btn-sound" class="btn btn-sound" title="Звук" aria-label="Увімкнути/вимкнути звук">🔊</button>
+            <button id="btn-settings" class="btn ghost" data-i18n="exit">Вихід</button>
+            <button id="btn-next" class="btn" data-i18n="next">Далі</button>
+          </div>
           <div class="stats" aria-live="polite">
             <span data-i18n="total">Всього</span>: <b id="stat-total">0</b>
             <span data-i18n="correct">Вірно</span>: <b id="stat-correct">0</b>
@@ -91,13 +101,15 @@
       </section>
     </main>
 
+    <!-- Toast notifications -->
     <div id="toast" class="toast" role="status" aria-live="assertive" aria-atomic="true"></div>
   </div>
 
-  <script src="js/ui.js"></script>
+  <!-- Scripts -->
   <script src="js/storage.js"></script>
   <script src="js/generator.js"></script>
   <script src="js/answers.js"></script>
+  <script src="js/ui.js"></script>
   <script src="js/main.js"></script>
 </body>
 </html>
